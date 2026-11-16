@@ -38,3 +38,12 @@
 
 Other portfolio projects are unchanged. The workspace-wide progress file keeps
 all earlier records; this repository checkpoint only covers kanban-guard.
+
+## Publication checkpoint
+
+- Published feature commit: e5ba9e4db86eecb204dccd887f7d30234d4a24cf.
+- Fetched the public remote and verified tree 357e87da0f3802aa65c817538b0f86e61bc3828a
+  exactly matches tested local commit adb8f01d80ef9baeb261351630818b3742006549.
+- Parent is the pinned upstream baseline; no force update was used.
+- Fork Actions enabled after publishing the upstream-only container guards.
+  This checkpoint triggers the first push CI run; its result is pending verification.

@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   build-and-push:
+    if: github.repository == 'dkorecko/Ticky'
     runs-on: ubuntu-latest
     permissions:
       contents: read

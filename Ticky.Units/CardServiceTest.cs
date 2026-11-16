@@ -207,6 +207,105 @@ public class CardServiceTest
         Assert.That(await db.Activities.CountAsync(x => x.CardId == _otherCardId), Is.Zero);
     }
 
+    [TestCase(-1)]
+    [TestCase(1)]
+    public async Task MoveToAdjacent_FullColumn_ChangesNothing(int offset)
+    {
+        var targetId = await AddColumnAsync("Doing", finished: false, maxCards: 1);
+        using (var db = _factory.CreateDbContext())
+        {
+            (await db.Columns.SingleAsync(x => x.Id == targetId)).Index = offset;
+            await db.SaveChangesAsync();
+        }
+        Assert.That(await _service.MoveToColumnAsync(_cardId, _boardMemberId, targetId, null), Is.True);
+
+        using var before = _factory.CreateDbContext();
+        var snapshot = await before.Cards.OrderBy(x => x.Id).Select(x => new { x.Id, x.ColumnId, x.Index }).ToListAsync();
+        Assert.That(await _service.MoveToAdjacentColumnAsync(_otherCardId, _boardMemberId, offset), Is.False);
+
+        using var check = _factory.CreateDbContext();
+        await Assert.MultipleAsync(async () =>
+        {
+            Assert.That(await check.Cards.OrderBy(x => x.Id).Select(x => new { x.Id, x.ColumnId, x.Index }).ToListAsync(), Is.EqualTo(snapshot));
+            Assert.That(await check.Cards.CountAsync(x => x.ColumnId == targetId), Is.EqualTo(1));
+            Assert.That(await check.Activities.CountAsync(x => x.CardId == _otherCardId), Is.Zero);
+        });
+    }
+
+    [TestCase(-1)]
+    [TestCase(1)]
+    public async Task MoveToAdjacent_AppendsAndRepairsBothColumnIndices(int offset)
+    {
+        var targetId = await AddColumnAsync("Done", finished: true);
+        using (var db = _factory.CreateDbContext())
+        {
+            (await db.Columns.SingleAsync(x => x.Id == targetId)).Index = offset;
+            await db.SaveChangesAsync();
+        }
+        await _service.MoveToColumnAsync(_cardId, _boardMemberId, targetId, null);
+        await _service.MoveToAdjacentColumnAsync(_otherCardId, _boardMemberId, offset);
+
+        using var check = _factory.CreateDbContext();
+        var cards = await check.Cards.ToDictionaryAsync(x => x.Id);
+        var activity = (CardMovedActivity)await check.Activities.SingleAsync(x => x.CardId == _otherCardId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(cards[_otherCardId].ColumnId, Is.EqualTo(targetId));
+            Assert.That(cards[_cardId].Index, Is.Zero);
+            Assert.That(cards[_otherCardId].Index, Is.EqualTo(1));
+            Assert.That(cards[_thirdCardId].Index, Is.Zero);
+            Assert.That(activity.FromColumnName, Is.EqualTo("To do"));
+            Assert.That(activity.ToColumnId, Is.EqualTo(targetId));
+            Assert.That(activity.ToColumnFinished, Is.True);
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task MoveToAdjacent_AvailableCapacity_ReturnsTrue(int limit)
+    {
+        var targetId = await AddColumnAsync("Doing", finished: false, maxCards: limit);
+        Assert.That(await _service.MoveToAdjacentColumnAsync(_cardId, _projectMemberId, 1), Is.True);
+
+        using var db = _factory.CreateDbContext();
+        Assert.That((await db.Cards.SingleAsync(x => x.Id == _cardId)).ColumnId, Is.EqualTo(targetId));
+        Assert.That(await db.Activities.CountAsync(x => x.CardId == _cardId), Is.EqualTo(1));
+    }
+
+    [TestCase(0)]
+    [TestCase(-2)]
+    [TestCase(2)]
+    public async Task MoveToAdjacent_NonAdjacentOffset_ReturnsFalseAndChangesNothing(int offset)
+    {
+        var targetId = await AddColumnAsync("Other", finished: false);
+        using (var db = _factory.CreateDbContext())
+        {
+            (await db.Columns.SingleAsync(x => x.Id == targetId)).Index = offset;
+            await db.SaveChangesAsync();
+        }
+        Assert.That(await _service.MoveToAdjacentColumnAsync(_cardId, _boardMemberId, offset), Is.False);
+        using var check = _factory.CreateDbContext();
+        Assert.That((await check.Cards.SingleAsync(x => x.Id == _cardId)).ColumnId, Is.Not.EqualTo(targetId));
+        Assert.That(await check.Activities.CountAsync(), Is.Zero);
+    }
+
+    [TestCase("missing-card")]
+    [TestCase("outsider")]
+    [TestCase("no-neighbour")]
+    public async Task MoveToAdjacent_Unavailable_ReturnsFalseWithoutLogging(string reason)
+    {
+        await AddColumnAsync("Doing", finished: false);
+        var cardId = reason == "missing-card" ? 999_999 : _cardId;
+        var userId = reason == "outsider" ? _outsiderId : _boardMemberId;
+        var offset = reason == "no-neighbour" ? -1 : 1;
+
+        Assert.That(await _service.MoveToAdjacentColumnAsync(cardId, userId, offset), Is.False);
+        using var check = _factory.CreateDbContext();
+        Assert.That(await check.Activities.CountAsync(), Is.Zero);
+        Assert.That(await check.Cards.Select(x => x.ColumnId).Distinct().CountAsync(), Is.EqualTo(1));
+    }
+
     [Test]
     public async Task CreateCard_ProjectMember_AddsTrimmedCardAtBottom()
     {

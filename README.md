@@ -1,3 +1,21 @@
+# kanban-guard — a Ticky portfolio extension
+
+This is a derived work of [dkorecko/Ticky](https://github.com/dkorecko/Ticky).
+The original application is upstream work. This extension fixes the reproduced
+adjacent-column WIP-limit bypass and ordering inconsistency, and adds failure
+feedback plus regression tests. See [PORTFOLIO.md](PORTFOLIO.md) for evidence and
+limits, [LEARNING.zh-CN.md](LEARNING.zh-CN.md) for the Chinese learning guide, and
+[PORTFOLIO_PROGRESS.md](PORTFOLIO_PROGRESS.md) for publication status.
+
+Prepared with Codex assistance; no independent human review is claimed. The
+upstream license is retained verbatim, including its placeholder copyright line.
+No deployment or online service is provided by this portfolio work.
+
+## Upstream README (the original author's voice)
+
+The first-person history and professional-experience statements below belong to
+the upstream author, not the portfolio owner.
+
 <p align="center">
     <picture>
         <source media="(prefers-color-scheme: dark)" srcset="Ticky.Web/wwwroot/assets/ticky-dark.svg">

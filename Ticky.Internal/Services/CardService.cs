@@ -233,26 +233,27 @@ public class CardService
     public Task RemoveRepeatAsync(int cardId, int userId) =>
         UpdateAsync(cardId, userId, _ => new RepeatDisabledActivity(), card => card.RepeatInfo = null);
 
-    /// <summary>Moves the card to the column next to its current one. Use -1 for the previous column, +1 for the next.</summary>
-    public async Task MoveToAdjacentColumnAsync(int cardId, int userId, int offset)
+    /// <summary>Moves the card to the column next to its current one, appending it. Use -1 or +1.</summary>
+    /// <returns>False if access, the offset, the adjacent column or its capacity prevents the move.</returns>
+    public async Task<bool> MoveToAdjacentColumnAsync(int cardId, int userId, int offset)
     {
+        if (offset is not (-1 or 1))
+            return false;
+
         using var db = _dbContextFactory.CreateDbContext();
-        var card = await db.Cards.AccessibleBy(userId).Include(x => x.Column).FirstOrDefaultAsync(x => x.Id == cardId);
+        var card = await db.Cards.AccessibleBy(userId).Include(x => x.Column.Cards).FirstOrDefaultAsync(x => x.Id == cardId);
 
         if (card is null)
-            return;
+            return false;
 
-        var targetColumn = await db.Columns.FirstOrDefaultAsync(x =>
+        var targetColumn = await db.Columns.Include(x => x.Cards).FirstOrDefaultAsync(x =>
             x.BoardId == card.Column.BoardId && x.Index == card.Column.Index + offset
         );
 
         if (targetColumn is null)
-            return;
+            return false;
 
-        Log(db, cardId, userId, Moved(card.Column, targetColumn));
-        card.Column = targetColumn;
-
-        await db.SaveChangesAsync();
+        return await MoveCardToColumnAsync(db, card, targetColumn, userId, beforeCardId: null);
     }
 
     /// <summary>
@@ -268,6 +269,13 @@ public class CardService
         if (card is null || targetColumn is null || targetColumn.BoardId != card.Column.BoardId)
             return false;
 
+        return await MoveCardToColumnAsync(db, card, targetColumn, userId, beforeCardId);
+    }
+
+    // Both entry points resolve access and board membership before sharing capacity, ordering and activity rules.
+    private static async Task<bool> MoveCardToColumnAsync(
+        DataContext db, Card card, Column targetColumn, int userId, int? beforeCardId)
+    {
         if (targetColumn.Id == card.ColumnId)
             return true;
 
@@ -289,7 +297,7 @@ public class CardService
                 other.Index++;
         }
 
-        Log(db, cardId, userId, Moved(oldColumn, targetColumn));
+        Log(db, card.Id, userId, Moved(oldColumn, targetColumn));
         targetColumn.Cards.Add(card);
         card.Column = targetColumn;
         card.Index = targetIndex;

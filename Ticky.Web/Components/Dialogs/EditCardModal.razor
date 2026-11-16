@@ -750,7 +750,9 @@
         if (_card is null)
             return;
 
-        await _cardService.MoveToAdjacentColumnAsync(_card.Id, _user.Id, -1);
+        if (!await _cardService.MoveToAdjacentColumnAsync(_card.Id, _user.Id, -1))
+            _mainLayout.RunNotification(new Notification(
+                "Unable to move this card. The adjacent column may be full or no longer available.", NotificationType.Fail));
         await UpdateCard();
     }
 
@@ -777,7 +779,9 @@
         if (_card is null)
             return;
 
-        await _cardService.MoveToAdjacentColumnAsync(_card.Id, _user.Id, 1);
+        if (!await _cardService.MoveToAdjacentColumnAsync(_card.Id, _user.Id, 1))
+            _mainLayout.RunNotification(new Notification(
+                "Unable to move this card. The adjacent column may be full or no longer available.", NotificationType.Fail));
         await UpdateCard();
     }
 

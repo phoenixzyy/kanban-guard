@@ -47,3 +47,17 @@ all earlier records; this repository checkpoint only covers kanban-guard.
 - Parent is the pinned upstream baseline; no force update was used.
 - Fork Actions enabled after publishing the upstream-only container guards.
   This checkpoint triggers the first push CI run; its result is pending verification.
+
+## Remote verification
+
+- Verified commit f6713ac577368088e8661a07286ef1f941b3c92e.
+- [Build app run 43919873668](https://github.com/phoenixzyy/kanban-guard/actions/runs/43919873668)
+  succeeded: locked frontend install/CSS consistency, restore, Release build and
+  all 271 tests (0 failures/skips) passed on Ubuntu with Node 22 and .NET 10.
+- Build retained 13 upstream obsolete/nullable warnings. The runner also warned
+  about the upstream v4 action runtime deprecation; this did not fail the run.
+- Container workflow run 43919873896 was skipped by the upstream-only guard.
+- Public fetch verified the feature commit's parent and exact tested tree. Four
+  upstream branches are retained. No deployment or package publication occurred.
+- No publication blocker remains. MySQL/browser E2E and concurrency limitations
+  listed above still apply; successful CI does not establish those properties.
